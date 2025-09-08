@@ -3,19 +3,14 @@
 import os
 import json
 import jsonref
+import requests_tests
+import random
 from jsf import JSF
+
 
 def load_openapi_schema(openapi_path, endpoint=None, method=None, schema_ref_path=None):
     """
     Универсальная функция для загрузки и разворачивания JSON-схемы из OpenAPI.
-
-    :param openapi_path: Путь к файлу openapi.json
-    :param endpoint: Путь эндпоинта (например, '/interfaces/ethernet/capability')
-    :param method: HTTP-метод (post, put, get и т.д.)
-    :param schema_ref_path: Альтернативно — путь к схеме в формате:
-                            "components.schemas.in_interfaces_ethernet_capability_write"
-                            или "#/components/schemas/..."
-    :return: Полностью развёрнутая схема (dict) или None
     """
     if not os.path.exists(openapi_path):
         raise FileNotFoundError(f"OpenAPI файл не найден: {openapi_path}")
@@ -30,11 +25,9 @@ def load_openapi_schema(openapi_path, endpoint=None, method=None, schema_ref_pat
         lazy_load=True
     )
 
-    # Схема может быть получена разными способами
     if schema_ref_path:
-        # Поддержка двух форматов: dotted path или JSON Pointer
+        # Обработка прямого пути к схеме
         if schema_ref_path.startswith("#/"):
-            # Пример: "#/components/schemas/MySchema"
             parts = [part for part in schema_ref_path[2:].split("/") if part]
             current = resolved_spec
             try:
@@ -42,10 +35,10 @@ def load_openapi_schema(openapi_path, endpoint=None, method=None, schema_ref_pat
                     current = current[part]
                 return current
             except KeyError as e:
-                raise KeyError(f"Схема не найдена по пути: {schema_ref_path}") from e
+                raise KeyError(
+                    f"Схема не найдена по пути: {schema_ref_path}") from e
 
         else:
-            # Пример: "components.schemas.MySchema"
             parts = schema_ref_path.split(".")
             current = resolved_spec
             try:
@@ -53,45 +46,121 @@ def load_openapi_schema(openapi_path, endpoint=None, method=None, schema_ref_pat
                     current = current[part]
                 return current
             except KeyError as e:
-                raise KeyError(f"Схема не найдена по пути: {schema_ref_path}") from e
+                raise KeyError(
+                    f"Схема не найдена по пути: {schema_ref_path}") from e
 
     elif endpoint and method:
-        # Извлекаем схему из requestBody
         method = method.lower()
-        if (
-            "paths" not in resolved_spec or
+        if ("paths" not in resolved_spec or
             endpoint not in resolved_spec["paths"] or
             method not in resolved_spec["paths"][endpoint]
-        ):
-            raise KeyError(f"Эндпоинт или метод не найден: {endpoint} {method.upper()}")
+            ):
+            raise KeyError(
+                f"Эндпоинт или метод не найден: {endpoint} {method.upper()}")
 
         operation = resolved_spec["paths"][endpoint][method]
 
-        if "requestBody" not in operation:
-            print(f"{method.upper()} {endpoint} не имеет requestBody")
-            return None
+        if "requestBody" in operation:
+            # POST, PUT и другие методы с requestBody
+            content = operation["requestBody"].get("content", {})
+            json_content = content.get(
+                "application/json") or content.get("*/*")
+            if not json_content or "schema" not in json_content:
+                raise KeyError(f"Нет схемы в requestBody для {endpoint}")
+            return json_content["schema"]
 
-        content = operation["requestBody"].get("content", {})
-        json_content = content.get("application/json") or content.get("*/*")
-        if not json_content or "schema" not in json_content:
-            raise KeyError(f"Нет схемы в requestBody для {endpoint}")
+        elif "parameters" in operation:
+            # GET и другие методы с параметрами
+            parameters = operation["parameters"]
+            schema = {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
 
-        return json_content["schema"]
+            for param in parameters:
+                param_name = param["name"]
+                param_in = param.get("in", "query")
+                param_required = param.get("required", False)
+                param_schema = param.get("schema", {})
+
+                if param_in == "query":
+                    schema["properties"][param_name] = param_schema
+                    if param_required:
+                        schema["required"].append(param_name)
+
+            return schema
+
+        else:
+            raise KeyError(
+                f"Нет параметров или requestBody для {endpoint} {method.upper()}")
 
     else:
-        raise ValueError("Укажите либо (endpoint + method), либо schema_ref_path")
+        raise ValueError(
+            "Укажите либо (endpoint + method), либо schema_ref_path")
 
 
-def generate_fake_data(schema, seed=None):
+def generate_fake_data(schema, available_interfaces, seed=None):
     """
-    Генерирует фейковые данные по схеме с помощью JSF.
-    :param schema: JSON-схема (уже без $ref)
-    :param seed: Опциональное зеркало для воспроизводимости
-    :return: Сгенерированные данные
+    Генерирует фейковые данные и исправляет boolean и const.
     """
     if seed is not None:
-        import random
         random.seed(seed)
 
     faker = JSF(schema)
-    return faker.generate()
+    fake_data = faker.generate()
+
+    # Заменяем ifname на реальный из списка
+    if 'ifname' in fake_data and len(available_interfaces) != 0:
+        fake_data['ifname'] = random.choice(available_interfaces)
+
+    # Рекурсивно исправляем 1 → True, 0 → False
+    def fix_bools(obj):
+        if isinstance(obj, dict):
+            return {k: fix_bools(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [fix_bools(item) for item in obj]
+        elif obj == 1:
+            return True
+        elif obj == 0:
+            return False
+        else:
+            return obj
+
+    return fix_bools(fake_data)
+
+
+def generate_fake_data_add(schema, available_interfaces, seed=None):
+    """
+    Генерирует фейковые данные для добавления интерфейсов c предварительной проверкой существования интерфейса.
+    """
+    if seed is not None:
+        random.seed(seed)
+
+    faker = JSF(schema)
+    fake_data = faker.generate()
+
+    # Заменяем ifname если такой уже существует
+    if 'ifname' in fake_data:
+        while fake_data['ifname'] in available_interfaces:
+            fake_data = faker.generate()
+
+    return fake_data
+
+
+def generate_fake_data_delete(schema, available_interfaces, seed=None):
+    """
+    Генерирует фейковые данные для удаления интерфейсов c предварительной проверкой существования интерфейса.
+    """
+    if seed is not None:
+        random.seed(seed)
+
+    faker = JSF(schema)
+    fake_data = faker.generate()
+
+    # Заменяем ifname если такой уже существует
+    if 'ifname' in fake_data:
+        while fake_data['ifname'] in available_interfaces:
+            fake_data = faker.generate()
+
+    return fake_data
