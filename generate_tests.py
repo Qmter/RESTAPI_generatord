@@ -5,8 +5,9 @@ import os
 import sys
 from jsf import JSF
 import jsonref
-from openapi_utils import generate_fake_data, load_openapi_schema, generate_fake_data_add
+from openapi_utils import generate_fake_data, load_openapi_schema, generate_fake_data_add, generate_fake_data_interfaces
 import requests_tests
+import time
 
 
 # Настройки
@@ -25,7 +26,7 @@ with open(OPENAPI_FILE, "r", encoding="utf-8") as f:
 
 
 # Фуенкия для создания PRESET в тестах
-def make_preset(endpoint: str, method: str, available_interfaces: list, interface_type: str) -> dict:
+def make_preset(endpoint: str, method: str, interface_type: str, available_interfaces=[]) -> dict:
     """Функция для создания PRESET
     endpoint - тестиремый ендпоинт,
     method - метод HTTP,
@@ -107,25 +108,51 @@ def find_args(schema: dict, method: str, used_args=[]) -> list:
     method - метод HTTP,
     user_args - список аргументов, которые используются в ендпоинте"""
 
-    #  Проверка методов (так как в разных методах используются разные ключи(post - requestBody, get - parameters))
+    if used_args is None:
+        used_args = []
+
+    if not isinstance(schema, dict):
+        return used_args
+
     if method == 'post':
-        for i in schema:
-            used_args.append(i)
-            if 'type' in schema[i]:
-                if schema[i]['type'] == 'object':
-                    return find_args(schema[i]['properties'], method='post')
-            if 'oneOf' in schema[i]:
-                for i in schema[i]['oneOf']:
-                    if 'properties' in i:
-                        return find_args(i['properties'], method='post')
-                    elif 'const' in i:
-                        used_args.append(list(i.keys())[0])
+        for key in schema:
+            # Добавляем ключ (например, имя поля)
+            used_args.append(key)
 
-    if method == 'get':
-        for i in schema:
-            used_args.append(i)
+            prop = schema[key]
+            if not isinstance(prop, dict):
+                continue
 
-    # Возвращае  список использованных аргументов
+            # Если это объект с properties
+            if prop.get("type") == "object":
+                if "properties" in prop:
+                    find_args(prop["properties"], method="post")
+                elif "oneOf" in prop:
+                    for option in prop["oneOf"]:
+                        if isinstance(option, dict):
+                            if "properties" in option:
+                                find_args(option["properties"], method="post")
+                            elif "const" in option:
+                                used_args.append(list(option.keys())[0])
+
+            # Если это oneOf на верхнем уровне (не внутри object)
+            elif "oneOf" in prop:
+                for option in prop["oneOf"]:
+                    if isinstance(option, dict):
+                        if option.get("type") == "object" and "properties" in option:
+                            find_args(option["properties"], method="post")
+                        elif "const" in option:
+                            used_args.append(list(option.keys())[0])
+
+            # Если это массив с объектом
+            elif prop.get("type") == "array" and isinstance(prop.get("items"), dict):
+                items = prop["items"]
+                if items.get("type") == "object" and "properties" in items:
+                    find_args(items["properties"], method="post")
+
+    elif method == 'get':
+        used_args.extend(schema.keys())
+
     return used_args
 
 
@@ -165,62 +192,125 @@ def main(endpoint: str, method: str):
     print(interface)
     print('---------------------------')
 
-    # Вспомагательный запрос для получения существующих интерфейсов
-    response_interfaces = requests_tests.get_interfaces(interface=interface)
-    available_interfaces = response_interfaces['result']['interfaces'][0]['ifname']
+    if len(resolved_schema) == 0:
+        print('Нет аргементов!')
+    else:
+        if interface != '':
+            # Вспомагательный запрос для получения существующих интерфейсов
+            response_interfaces = requests_tests.get_interfaces(
+                interface=interface)
+            available_interfaces = response_interfaces['result']['interfaces'][0]['ifname']
 
-    print('ДОСТУПНЫЕ ИНТЕРФЕЙСЫ ----', available_interfaces)
+            print('ДОСТУПНЫЕ ИНТЕРФЕЙСЫ ----', available_interfaces)
 
-    print()
+            print()
 
-    print('---------------------------')
-    print("РАЗРЕШЕННАЯ СХЕМА:")
-    print(json.dumps(resolved_schema, indent=2))
-    print('---------------------------')
-
-    if method == 'post':
-        used_args = find_args(resolved_schema['properties'], method=method)
-
-        print('---------------------------')
-        print('ИСПОЛЬЗОВАННЫЕ АРГУМЕНТЫ:')
-        print(used_args)
-        print('---------------------------')
-
-        print('---------------------------')
-        print('ФЕЙКОВЫЕ ДАННЫЕ:')
-        for i in range(10):
-            print(f'ДАННЫЕ №{i}')
-            data = generate_fake_data(
-                resolved_schema, available_interfaces=available_interfaces)
-            print(data)
+            print('---------------------------')
+            print("РАЗРЕШЕННАЯ СХЕМА:")
+            print(json.dumps(resolved_schema, indent=2))
             print('---------------------------')
 
-    elif method == 'get':
-        used_args = list(resolved_schema.get("properties", {}).keys())
+            if method == 'post':
+                if resolved_schema.get("type") == "object" and "properties" in resolved_schema:
+                    used_args = find_args(
+                        resolved_schema['properties'], method=method)
+                else:
+                    used_args = []
 
-        print('---------------------------')
-        print('ИСПОЛЬЗОВАННЫЕ АРГУМЕНТЫ:')
-        print(used_args)
-        print('---------------------------')
+                print('---------------------------')
+                print('ИСПОЛЬЗОВАННЫЕ АРГУМЕНТЫ:')
+                print(used_args)
+                print('---------------------------')
 
-        print('---------------------------')
-        print('ФЕЙКОВЫЕ ДАННЫЕ:')
-        for i in range(10):
-            print(f'ДАННЫЕ №{i}')
-            data = generate_fake_data(
-                resolved_schema, available_interfaces=available_interfaces)
-            print(data)
+                print('---------------------------')
+                print('ФЕЙКОВЫЕ ДАННЫЕ:')
+                for i in range(10):
+                    print(f'ДАННЫЕ №{i}')
+                    data = generate_fake_data_interfaces(
+                        resolved_schema, available_interfaces=available_interfaces)
+                    print(data)
+                    print('---------------------------')
+
+            elif method == 'get':
+                used_args = list(resolved_schema.get("properties", {}).keys())
+
+                print('---------------------------')
+                print('ИСПОЛЬЗОВАННЫЕ АРГУМЕНТЫ:')
+                print(used_args)
+                print('---------------------------')
+
+                print('---------------------------')
+                print('ФЕЙКОВЫЕ ДАННЫЕ:')
+                for i in range(10):
+                    print(f'ДАННЫЕ №{i}')
+                    data = generate_fake_data_interfaces(
+                        resolved_schema, available_interfaces=available_interfaces)
+                    print(data)
+                    print('---------------------------')
+
+            # Получаем PRESET для ендпоинта
+            preset = make_preset(endpoint=endpoint, method=method,
+                                 available_interfaces=available_interfaces, interface_type=interface)
+            print('---------------------------')
+            print("PRESET")
+            print(json.dumps(preset, indent=1))
             print('---------------------------')
 
-    # Получаем PRESET для ендпоинта
-    preset = make_preset(endpoint=endpoint, method=method,
-                         available_interfaces=available_interfaces, interface_type=interface)
-    print('---------------------------')
-    print("PRESET")
-    print(json.dumps(preset, indent=1))
-    print('---------------------------')
+            # print(preset['PRESET']['1']['schema'])
+        else:
+            print('ЕНДПОИНТ БЕЗ ИНТЕРФЕЙСОВ')
 
-    # print(preset['PRESET']['1']['schema'])
+            print()
+
+            print('---------------------------')
+            print("РАЗРЕШЕННАЯ СХЕМА:")
+            # print(json.dumps(resolved_schema, indent=2))
+            print('---------------------------')
+
+            if method == 'post':
+                if resolved_schema.get("type") == "object" and "properties" in resolved_schema:
+                    used_args = find_args(
+                        resolved_schema['properties'], method=method)
+                else:
+                    used_args = []
+
+                print('---------------------------')
+                print('ИСПОЛЬЗОВАННЫЕ АРГУМЕНТЫ:')
+                print(used_args)
+                print('---------------------------')
+
+                print('---------------------------')
+                print('ФЕЙКОВЫЕ ДАННЫЕ:')
+                for i in range(10):
+                    print(f'ДАННЫЕ №{i}')
+                    data = generate_fake_data(resolved_schema)
+                    print(data)
+                    print('---------------------------')
+
+            elif method == 'get':
+                used_args = list(resolved_schema.get("properties", {}).keys())
+
+                print('---------------------------')
+                print('ИСПОЛЬЗОВАННЫЕ АРГУМЕНТЫ:')
+                print(used_args)
+                print('---------------------------')
+
+                print('---------------------------')
+                print('ФЕЙКОВЫЕ ДАННЫЕ:')
+                for i in range(10):
+                    print(f'ДАННЫЕ №{i}')
+                    data = generate_fake_data(
+                        resolved_schema)
+                    print(data)
+                    print('---------------------------')
+
+            # Получаем PRESET для ендпоинта
+            preset = make_preset(
+                endpoint=endpoint, method=method, interface_type=interface)
+            print('---------------------------')
+            print("PRESET")
+            print(json.dumps(preset, indent=1))
+            print('---------------------------')
 
 
 if __name__ == '__main__':
@@ -243,6 +333,22 @@ if __name__ == '__main__':
 
     operation = path_item[method]
 
-    # Запуск
-    main(endpoint=endpoint, method=method)
+    main(endpoint=endpoint, method=method.lower())
+
+    # with open('endpoints_methods.txt', 'r', encoding='utf-8') as f:
+    #     endpoints = f.read()
+
+    # all_endpoint = endpoints.split('\n')
+    # for i in all_endpoint:
+    #     print('---------------------------')
+    #     print(f'ЕНДПОИНТ {i}')
+    #     endpoint = i.split('%')[0]
+    #     method = i.split('%')[1]
+    #     # Запуск
+    #     main(endpoint=endpoint, method=method.lower())
+    #     # time.sleep(0.5)
+    #     print('---------------------------')
+    #     print('---------------------------')
+    # # print('---------------------------')
+
     # make_preset(endpoint, method, operation)

@@ -1,88 +1,1097 @@
+---------------------------
+ИНТЕРФЕЙС:
+
+---------------------------
+
+---------------------------
+РАЗРЕШЕННАЯ СХЕМА:
 {
-  "description": "Write bonding capabilities, missing parameters are not touched, null parameters sets values to their default state",
+  "title": "request write add DHCP pool option",
+  "description": "Add DHCP option",
   "type": "object",
   "required": [
-    "ifname",
-    "capability"
+    "pool_number",
+    "option"
   ],
-  "additionalProperties": false,
+  "unevaluatedProperties": false,
   "properties": {
-    "ifname": {
-      "description": "bonding interface name",
-      "type": "string",
-      "pattern": "^bond(0|[1-9][0-9]{0,3})$"
+    "pool_number": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65535,
+      "description": "<1-65535>"
     },
-    "capability": {
+    "host_name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.\\-]+$",
+      "description": "Alphanumeric, underscore, dot, hyphen"
+    },
+    "group_name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.\\-]+$",
+      "description": "Alphanumeric, underscore, dot, hyphen"
+    },
+    "option": {
       "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "hash_policy": {
-          "description": "Set hash policy.",
-          "type": "string",
-          "oneOf": [
-            {
-              "const": "layer2",
-              "description": "Use only MAC addresses. (by default)"
+      "unevaluatedProperties": false,
+      "required": [
+        "name",
+        "parameters"
+      ],
+      "description": "DHCP option with parameters",
+      "oneOf": [
+        {
+          "title": "bootfile-name",
+          "properties": {
+            "name": {
+              "const": "bootfile-name",
+              "description": "boot file (Option 67)"
             },
-            {
-              "const": "layer2+3",
-              "description": "Use MAC and IP addresses"
-            },
-            {
-              "const": "layer3+4",
-              "description": "Use IP addresses and upper protocol information"
-            }
-          ]
-        },
-        "link_monitor_period": {
-          "description": "Set the MII link monitoring frequency",
-          "oneOf": [
-            {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 2147483647,
-              "description": "<0-2147483647>"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "enslave": {
-          "type": "array",
-          "description": "list of connected ethernet and vlan interfaces",
-          "items": {
-            "oneOf": [
-              {
-                "description": "ethernet interface name",
-                "type": "string",
-                "pattern": "^eth(0|[1-9][0-9]{0,3})$"
-              },
-              {
-                "description": "Ethernet VLAN subinterface name",
-                "type": "string",
-                "pattern": "^eth(0|[1-9][0-9]{0,3})([\\.](0|[1-9][0-9]{0,3}))$"
-              },
-              {
-                "description": "vlan interface name",
-                "type": "string",
-                "pattern": "^vlan([0-9]|[1-9][0-9]{1,2}|[1-3][0-9]{3}|40[0-8][0-9]|409[0-5])$"
+            "parameters": {
+              "type": "object",
+              "description": "Parameters for bootfile-name option",
+              "additionalProperties": false,
+              "required": [
+                "bootfile_name"
+              ],
+              "properties": {
+                "bootfile_name": {
+                  "type": "string",
+                  "pattern": "^[^\\x01-\\x1f\\x22]+$",
+                  "description": "String, no double quotes"
+                },
+                "comment": {
+                  "type": "string",
+                  "pattern": "^[^\\x01-\\x1f\\']{1,63}$",
+                  "description": "String, no quotes, up to 63 chars"
+                }
               }
-            ]
+            }
+          }
+        },
+        {
+          "title": "classless-static-routes",
+          "properties": {
+            "name": {
+              "const": "classless-static-routes",
+              "description": "static routes (Option 121)"
+            },
+            "parameters": {
+              "type": "object",
+              "description": "Parameters for classless-static-routes option",
+              "additionalProperties": false,
+              "required": [
+                "routes"
+              ],
+              "properties": {
+                "routes": {
+                  "type": "array",
+                  "description": "Array of routes",
+                  "items": {
+                    "type": "object",
+                    "description": "Static route",
+                    "additionalProperties": false,
+                    "required": [
+                      "destination_address",
+                      "router_address"
+                    ],
+                    "properties": {
+                      "destination_address": {
+                        "type": "string",
+                        "pattern": "^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])(\\/(3[012]|[12][0-9]|[0-9]))$",
+                        "description": "A.B.C.D/M"
+                      },
+                      "router_address": {
+                        "type": "string",
+                        "pattern": "^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])$",
+                        "description": "A.B.C.D"
+                      }
+                    }
+                  },
+                  "minItems": 1
+                },
+                "comment": {
+                  "type": "string",
+                  "pattern": "^[^\\x01-\\x1f\\']{1,63}$",
+                  "description": "String, no quotes, up to 63 chars"
+                }
+              }
+            }
+          }
+        },
+        {
+          "title": "default-ip-ttl",
+          "properties": {
+            "name": {
+              "const": "default-ip-ttl",
+              "description": "Default TTL for outgoing datagrams (Option 23)"
+            },
+            "parameters": {
+              "type": "object",
+              "description": "Parameters for default-ip-ttl option",
+              "additionalProperties": false,
+              "required": [
+                "ttl"
+              ],
+              "properties": {
+                "ttl": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 255,
+                  "description": "<0-255>"
+                },
+                "comment": {
+                  "type": "string",
+                  "pattern": "^[^\\x01-\\x1f\\']{1,63}$",
+                  "description": "String, no quotes, up to 63 chars"
+                }
+              }
+            }
+          }
+        },
+        {
+          "title": "dhcp-message-type",
+          "properties": {
+            "name": {
+              "const": "dhcp-message-type",
+              "description": "DHCP message type (Option 53)"
+            },
+            "parameters": {
+              "type": "object",
+              "description": "Parameters for dhcp-message-type option",
+              "additionalProperties": false,
+              "required": [
+                "type"
+              ],
+              "properties": {
+                "type": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 255,
+                  "description": "<0-255>"
+                },
+                "comment": {
+                  "type": "string",
+                  "pattern": "^[^\\x01-\\x1f\\']{1,63}$",
+                  "description": "String, no quotes, up to 63 chars"
+                }
+              }
+            }
+          }
+        },
+        {
+          "title": "domain-name",
+          "properties": {
+            "name": {
+              "const": "domain-name",
+              "description": "Domain name (Option 15)"
+            },
+            "parameters": {
+              "type": "object",
+              "description": "Parameters for domain-name option",
+              "additionalProperties": false,
+              "required": [
+                "domain_name"
+              ],
+              "properties": {
+                "domain_name": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z0-9]([\\-a-zA-Z0-9]{0,62}[a-zA-Z0-9]){0,1}(\\.[a-zA-Z0-9]([\\-a-zA-Z0-9]{0,62}[a-zA-Z0-9]){0,1})*",
+                  "description": "hostname/domain-name"
+                },
+                "comment": {
+                  "type": "string",
+                  "pattern": "^[^\\x01-\\x1f\\']{1,63}$",
+                  "description": "String, no quotes, up to 63 chars"
+                }
+              }
+            }
+          }
+        },
+        {
+          "title": "domain-name-servers",
+          "properties": {
+            "name": {
+              "const": "domain-name-servers",
+              "description": "DNS-servers for DHCPv4-client (Option 6)"
+            },
+            "parameters": {
+              "type": "object",
+              "description": "Parameters for domain-name-servers option",
+              "additionalProperties": false,
+              "required": [
+                "dns_addresses"
+              ],
+              "properties": {
+                "dns_addresses": {
+                  "type": "array",
+                  "description": "Array of Domain name server addresses",
+                  "items": {
+                    "type": "string",
+                    "pattern": "(^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])$)|(^([a-zA-Z0-9]+(\\-[a-zA-Z0-9]+)*)+(\\.[a-zA-Z0-9][\\-a-zA-Z0-9]{0,62})*(\\.|(\\.[a-zA-Z]{2,63}))$)",
+                    "description": "example.com or A.B.C.D"
+                  },
+                  "minItems": 1
+                },
+                "comment": {
+                  "type": "string",
+                  "pattern": "^[^\\x01-\\x1f\\']{1,63}$",
+                  "description": "String, no quotes, up to 63 chars"
+                }
+              }
+            }
+          }
+        },
+        {
+          "title": "host-name",
+          "properties": {
+            "name": {
+              "const": "host-name",
+              "description": "Host name (Option 12)"
+            },
+            "parameters": {
+              "type": "object",
+              "description": "Parameters for host-name option",
+              "additionalProperties": false,
+              "required": [
+                "host"
+              ],
+              "properties": {
+                "host": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z0-9]([\\-a-zA-Z0-9]{0,62}[a-zA-Z0-9]){0,1}(\\.[a-zA-Z0-9]([\\-a-zA-Z0-9]{0,62}[a-zA-Z0-9]){0,1})*",
+                  "description": "hostname/domain-name"
+                },
+                "comment": {
+                  "type": "string",
+                  "pattern": "^[^\\x01-\\x1f\\']{1,63}$",
+                  "description": "String, no quotes, up to 63 chars"
+                }
+              }
+            }
+          }
+        },
+        {
+          "title": "interface-mtu",
+          "properties": {
+            "name": {
+              "const": "interface-mtu",
+              "description": "Interface MTU (Option 26)"
+            },
+            "parameters": {
+              "type": "object",
+              "description": "Parameters for interface-mtu option",
+              "additionalProperties": false,
+              "required": [
+                "mtu"
+              ],
+              "properties": {
+                "mtu": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 65535,
+                  "description": "<0-65535>"
+                },
+                "comment": {
+                  "type": "string",
+                  "pattern": "^[^\\x01-\\x1f\\']{1,63}$",
+                  "description": "String, no quotes, up to 63 chars"
+                }
+              }
+            }
+          }
+        },
+        {
+          "title": "ip-forwarding",
+          "properties": {
+            "name": {
+              "const": "ip-forwarding",
+              "description": "IP forwarding flag (Option 19)"
+            },
+            "parameters": {
+              "type": "object",
+              "description": "Parameters for ip-forwarding option",
+              "additionalProperties": false,
+              "required": [
+                "flag"
+              ],
+              "properties": {
+                "flag": {
+                  "type": "string",
+                  "enum": [
+                    "true",
+                    "false"
+                  ],
+                  "description": "Boolean choice"
+                },
+                "comment": {
+                  "type": "string",
+                  "pattern": "^[^\\x01-\\x1f\\']{1,63}$",
+                  "description": "String, no quotes, up to 63 chars"
+                }
+              }
+            }
+          }
+        },
+        {
+          "title": "lpr-servers",
+          "properties": {
+            "name": {
+              "const": "lpr-servers",
+              "description": "Address of LPR server (Option 9)"
+            },
+            "parameters": {
+              "type": "object",
+              "description": "Parameters for lpr-servers option",
+              "additionalProperties": false,
+              "required": [
+                "server_addresses"
+              ],
+              "properties": {
+                "server_addresses": {
+                  "type": "array",
+                  "description": "Array of LPR server addresses",
+                  "items": {
+                    "type": "string",
+                    "pattern": "(^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])$)|(^([a-zA-Z0-9]+(\\-[a-zA-Z0-9]+)*)+(\\.[a-zA-Z0-9][\\-a-zA-Z0-9]{0,62})*(\\.|(\\.[a-zA-Z]{2,63}))$)",
+                    "description": "example.com or A.B.C.D"
+                  },
+                  "minItems": 1
+                },
+                "comment": {
+                  "type": "string",
+                  "pattern": "^[^\\x01-\\x1f\\']{1,63}$",
+                  "description": "String, no quotes, up to 63 chars"
+                }
+              }
+            }
+          }
+        },
+        {
+          "title": "max-dgram-reassembly",
+          "properties": {
+            "name": {
+              "const": "max-dgram-reassembly",
+              "description": "Datagram maximum size to reassemble (Option 22)"
+            },
+            "parameters": {
+              "type": "object",
+              "description": "Parameters for max-dgram-reassembly option",
+              "additionalProperties": false,
+              "required": [
+                "reassembly"
+              ],
+              "properties": {
+                "reassembly": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 65535,
+                  "description": "<0-65535>"
+                },
+                "comment": {
+                  "type": "string",
+                  "pattern": "^[^\\x01-\\x1f\\']{1,63}$",
+                  "description": "String, no quotes, up to 63 chars"
+                }
+              }
+            }
+          }
+        },
+        {
+          "title": "mobile-ip-home-agent",
+          "properties": {
+            "name": {
+              "const": "mobile-ip-home-agent",
+              "description": "IPv4 addresses of Mobile IP Home Agent (Option 68)"
+            },
+            "parameters": {
+              "type": "object",
+              "description": "Parameters for mobile-ip-home-agent option",
+              "additionalProperties": false,
+              "required": [
+                "agents_addresses"
+              ],
+              "properties": {
+                "agents_addresses": {
+                  "type": "array",
+                  "description": "Array of Home agents addresses",
+                  "items": {
+                    "type": "string",
+                    "pattern": "(^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])$)|(^([a-zA-Z0-9]+(\\-[a-zA-Z0-9]+)*)+(\\.[a-zA-Z0-9][\\-a-zA-Z0-9]{0,62})*(\\.|(\\.[a-zA-Z]{2,63}))$)",
+                    "description": "example.com or A.B.C.D"
+                  },
+                  "minItems": 1
+                },
+                "comment": {
+                  "type": "string",
+                  "pattern": "^[^\\x01-\\x1f\\']{1,63}$",
+                  "description": "String, no quotes, up to 63 chars"
+                }
+              }
+            }
+          }
+        },
+        {
+          "title": "non-local-source-routing",
+          "properties": {
+            "name": {
+              "const": "non-local-source-routing",
+              "description": "Non-local source routing (Option 20)"
+            },
+            "parameters": {
+              "type": "object",
+              "description": "Parameters for non-local-source-routing option",
+              "additionalProperties": false,
+              "required": [
+                "flag"
+              ],
+              "properties": {
+                "flag": {
+                  "type": "string",
+                  "enum": [
+                    "true",
+                    "false"
+                  ],
+                  "description": "Boolean choice"
+                },
+                "comment": {
+                  "type": "string",
+                  "pattern": "^[^\\x01-\\x1f\\']{1,63}$",
+                  "description": "String, no quotes, up to 63 chars"
+                }
+              }
+            }
+          }
+        },
+        {
+          "title": "ntp-servers",
+          "properties": {
+            "name": {
+              "const": "ntp-servers",
+              "description": "NTP servers (Option 42)"
+            },
+            "parameters": {
+              "type": "object",
+              "description": "Parameters for ntp-servers option",
+              "additionalProperties": false,
+              "required": [
+                "server_addresses"
+              ],
+              "properties": {
+                "server_addresses": {
+                  "type": "array",
+                  "description": "Array of NTP server addresses",
+                  "items": {
+                    "type": "string",
+                    "pattern": "(^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])$)|(^([a-zA-Z0-9]+(\\-[a-zA-Z0-9]+)*)+(\\.[a-zA-Z0-9][\\-a-zA-Z0-9]{0,62})*(\\.|(\\.[a-zA-Z]{2,63}))$)",
+                    "description": "example.com or A.B.C.D"
+                  },
+                  "minItems": 1
+                },
+                "comment": {
+                  "type": "string",
+                  "pattern": "^[^\\x01-\\x1f\\']{1,63}$",
+                  "description": "String, no quotes, up to 63 chars"
+                }
+              }
+            }
+          }
+        },
+        {
+          "title": "policy-filter",
+          "properties": {
+            "name": {
+              "const": "policy-filter",
+              "description": "Policy filters (Option 21)"
+            },
+            "parameters": {
+              "type": "object",
+              "description": "Parameters for policy-filter option",
+              "additionalProperties": false,
+              "required": [
+                "addresses"
+              ],
+              "properties": {
+                "addresses": {
+                  "type": "array",
+                  "description": "Array of addresses",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "address",
+                      "mask"
+                    ],
+                    "properties": {
+                      "address": {
+                        "type": "string",
+                        "pattern": "^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])$",
+                        "description": "A.B.C.D"
+                      },
+                      "mask": {
+                        "type": "string",
+                        "pattern": "^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])$",
+                        "description": "A.B.C.D"
+                      }
+                    }
+                  },
+                  "minItems": 1
+                },
+                "comment": {
+                  "type": "string",
+                  "pattern": "^[^\\x01-\\x1f\\']{1,63}$",
+                  "description": "String, no quotes, up to 63 chars"
+                }
+              }
+            }
+          }
+        },
+        {
+          "title": "routers",
+          "properties": {
+            "name": {
+              "const": "routers",
+              "description": "Routers (Option 3)"
+            },
+            "parameters": {
+              "type": "object",
+              "description": "Parameters for routers option",
+              "additionalProperties": false,
+              "required": [
+                "router_addresses"
+              ],
+              "properties": {
+                "router_addresses": {
+                  "type": "array",
+                  "description": "Array of Router addresses",
+                  "items": {
+                    "type": "string",
+                    "pattern": "(^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])$)|(^([a-zA-Z0-9]+(\\-[a-zA-Z0-9]+)*)+(\\.[a-zA-Z0-9][\\-a-zA-Z0-9]{0,62})*(\\.|(\\.[a-zA-Z]{2,63}))$)",
+                    "description": "example.com or A.B.C.D"
+                  },
+                  "minItems": 1
+                },
+                "comment": {
+                  "type": "string",
+                  "pattern": "^[^\\x01-\\x1f\\']{1,63}$",
+                  "description": "String, no quotes, up to 63 chars"
+                }
+              }
+            }
+          }
+        },
+        {
+          "title": "static-routes",
+          "properties": {
+            "name": {
+              "const": "static-routes",
+              "description": "Static routes (Option 33)"
+            },
+            "parameters": {
+              "type": "object",
+              "description": "Parameters for static-routes option",
+              "additionalProperties": false,
+              "required": [
+                "routes"
+              ],
+              "properties": {
+                "routes": {
+                  "type": "array",
+                  "description": "Array of routes",
+                  "items": {
+                    "type": "object",
+                    "description": "Static route",
+                    "additionalProperties": false,
+                    "required": [
+                      "destination_address",
+                      "router_address"
+                    ],
+                    "properties": {
+                      "destination_address": {
+                        "type": "string",
+                        "pattern": "^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])$",
+                        "description": "A.B.C.D"
+                      },
+                      "router_address": {
+                        "type": "string",
+                        "pattern": "^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])$",
+                        "description": "A.B.C.D"
+                      }
+                    }
+                  },
+                  "minItems": 1
+                },
+                "comment": {
+                  "type": "string",
+                  "pattern": "^[^\\x01-\\x1f\\']{1,63}$",
+                  "description": "String, no quotes, up to 63 chars"
+                }
+              }
+            }
+          }
+        },
+        {
+          "title": "subnet-mask",
+          "properties": {
+            "name": {
+              "const": "subnet-mask",
+              "description": "Subnet mask for DHCPv4-client (Option 1)"
+            },
+            "parameters": {
+              "type": "object",
+              "description": "Parameters for subnet-mask option",
+              "additionalProperties": false,
+              "required": [
+                "subnet_mask"
+              ],
+              "properties": {
+                "subnet_mask": {
+                  "type": "string",
+                  "pattern": "^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])$",
+                  "description": "A.B.C.D"
+                },
+                "comment": {
+                  "type": "string",
+                  "pattern": "^[^\\x01-\\x1f\\']{1,63}$",
+                  "description": "String, no quotes, up to 63 chars"
+                }
+              }
+            }
+          }
+        },
+        {
+          "title": "tftp-server-address",
+          "properties": {
+            "name": {
+              "const": "tftp-server-address",
+              "description": "TFTP servers list (Option 150)"
+            },
+            "parameters": {
+              "type": "object",
+              "description": "Parameters for tftp-server-address option",
+              "additionalProperties": false,
+              "required": [
+                "server_addresses"
+              ],
+              "properties": {
+                "server_addresses": {
+                  "type": "array",
+                  "description": "Array of TFTP server addresses",
+                  "items": {
+                    "type": "string",
+                    "pattern": "(^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])$)|(^([a-zA-Z0-9]+(\\-[a-zA-Z0-9]+)*)+(\\.[a-zA-Z0-9][\\-a-zA-Z0-9]{0,62})*(\\.|(\\.[a-zA-Z]{2,63}))$)",
+                    "description": "example.com or A.B.C.D"
+                  },
+                  "minItems": 1
+                },
+                "comment": {
+                  "type": "string",
+                  "pattern": "^[^\\x01-\\x1f\\']{1,63}$",
+                  "description": "String, no quotes, up to 63 chars"
+                }
+              }
+            }
+          }
+        },
+        {
+          "title": "tftp-server-name",
+          "properties": {
+            "name": {
+              "const": "tftp-server-name",
+              "description": "TFTP server name (Option 66)"
+            },
+            "parameters": {
+              "type": "object",
+              "description": "Parameters for tftp-server-name option",
+              "additionalProperties": false,
+              "required": [
+                "server_name"
+              ],
+              "properties": {
+                "server_name": {
+                  "type": "string",
+                  "pattern": "^[^\\x01-\\x1f\\x22]+$",
+                  "description": "String, no double quotes"
+                },
+                "comment": {
+                  "type": "string",
+                  "pattern": "^[^\\x01-\\x1f\\']{1,63}$",
+                  "description": "String, no quotes, up to 63 chars"
+                }
+              }
+            }
+          }
+        },
+        {
+          "title": "time-offset",
+          "properties": {
+            "name": {
+              "const": "time-offset",
+              "description": "Time offset from UTC (Option 2)"
+            },
+            "parameters": {
+              "type": "object",
+              "description": "Parameters for time-offset option",
+              "additionalProperties": false,
+              "required": [
+                "time_offset"
+              ],
+              "properties": {
+                "time_offset": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295,
+                  "description": "Unsigned integer"
+                },
+                "comment": {
+                  "type": "string",
+                  "pattern": "^[^\\x01-\\x1f\\']{1,63}$",
+                  "description": "String, no quotes, up to 63 chars"
+                }
+              }
+            }
+          }
+        },
+        {
+          "title": "time-servers",
+          "properties": {
+            "name": {
+              "const": "time-servers",
+              "description": "Time servers (Option 4)"
+            },
+            "parameters": {
+              "type": "object",
+              "description": "Parameters for time-servers option",
+              "additionalProperties": false,
+              "required": [
+                "server_addresses"
+              ],
+              "properties": {
+                "server_addresses": {
+                  "type": "array",
+                  "description": "Array of Time server addresses",
+                  "items": {
+                    "type": "string",
+                    "pattern": "(^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])$)|(^([a-zA-Z0-9]+(\\-[a-zA-Z0-9]+)*)+(\\.[a-zA-Z0-9][\\-a-zA-Z0-9]{0,62})*(\\.|(\\.[a-zA-Z]{2,63}))$)",
+                    "description": "example.com or A.B.C.D"
+                  },
+                  "minItems": 1
+                },
+                "comment": {
+                  "type": "string",
+                  "pattern": "^[^\\x01-\\x1f\\']{1,63}$",
+                  "description": "String, no quotes, up to 63 chars"
+                }
+              }
+            }
+          }
+        },
+        {
+          "title": "ip-tele-voicesrvr",
+          "properties": {
+            "name": {
+              "const": "ip-tele-voicesrvr",
+              "description": "IP telephony voice server (Option 176)"
+            },
+            "parameters": {
+              "type": "object",
+              "description": "Parameters for IP telephony voice server",
+              "additionalProperties": false,
+              "oneOf": [
+                {
+                  "required": [
+                    "l2qvlan",
+                    "vlantest"
+                  ]
+                },
+                {
+                  "not": {
+                    "required": [
+                      "vlantest"
+                    ]
+                  }
+                }
+              ],
+              "properties": {
+                "mcipadd": {
+                  "type": "string",
+                  "pattern": "^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])$",
+                  "description": "A.B.C.D"
+                },
+                "mcport": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 65535,
+                  "description": "<0-65535>"
+                },
+                "tftpsrvr": {
+                  "type": "string",
+                  "pattern": "^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])$",
+                  "description": "A.B.C.D"
+                },
+                "tftpdir": {
+                  "type": "string",
+                  "pattern": "^[^\\x01-\\x1f\\x22]{1,255}$",
+                  "description": "Filename, no double quotes, up to 255 chars"
+                },
+                "httpsrvr": {
+                  "type": "string",
+                  "pattern": "^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])$",
+                  "description": "A.B.C.D"
+                },
+                "tlssrvr": {
+                  "type": "string",
+                  "pattern": "^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])$",
+                  "description": "A.B.C.D"
+                },
+                "l2quad": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 6,
+                  "description": "<1-6>"
+                },
+                "l2qsig": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 6,
+                  "description": "<1-6>"
+                },
+                "l2qvlan": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 4094,
+                  "description": "<1-4094>"
+                },
+                "vlantest": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1000,
+                  "description": "<1-1000>"
+                },
+                "comment": {
+                  "type": "string",
+                  "pattern": "^[^\\x01-\\x1f\\']{1,63}$",
+                  "description": "String, no quotes, up to 63 chars"
+                }
+              }
+            }
+          }
+        },
+        {
+          "title": "ip-tele-datasrvr",
+          "properties": {
+            "name": {
+              "const": "ip-tele-datasrvr",
+              "description": "IP telephony data server (Option 242)"
+            },
+            "parameters": {
+              "type": "object",
+              "description": "Parameters for IP telephony data server",
+              "additionalProperties": false,
+              "oneOf": [
+                {
+                  "required": [
+                    "l2qvlan",
+                    "vlantest"
+                  ]
+                },
+                {
+                  "not": {
+                    "required": [
+                      "vlantest"
+                    ]
+                  }
+                }
+              ],
+              "properties": {
+                "mcipadd": {
+                  "type": "string",
+                  "pattern": "^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])$",
+                  "description": "A.B.C.D"
+                },
+                "mcport": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 65535,
+                  "description": "<0-65535>"
+                },
+                "tftpsrvr": {
+                  "type": "string",
+                  "pattern": "^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])$",
+                  "description": "A.B.C.D"
+                },
+                "tftpdir": {
+                  "type": "string",
+                  "pattern": "^[^\\x01-\\x1f\\x22]{1,255}$",
+                  "description": "Filename, no double quotes, up to 255 chars"
+                },
+                "httpsrvr": {
+                  "type": "string",
+                  "pattern": "^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])$",
+                  "description": "A.B.C.D"
+                },
+                "tlssrvr": {
+                  "type": "string",
+                  "pattern": "^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])$",
+                  "description": "A.B.C.D"
+                },
+                "l2quad": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 6,
+                  "description": "<1-6>"
+                },
+                "l2qsig": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 6,
+                  "description": "<1-6>"
+                },
+                "l2qvlan": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 4094,
+                  "description": "<1-4094>"
+                },
+                "vlantest": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1000,
+                  "description": "<1-1000>"
+                },
+                "comment": {
+                  "type": "string",
+                  "pattern": "^[^\\x01-\\x1f\\']{1,63}$",
+                  "description": "String, no quotes, up to 63 chars"
+                }
+              }
+            }
+          }
+        },
+        {
+          "title": "vendor-class-identifier",
+          "properties": {
+            "name": {
+              "const": "vendor-class-identifier",
+              "description": "Vendor class identifier (Option 60)"
+            },
+            "parameters": {
+              "type": "object",
+              "description": "Parameters for vendor-class-identifier option",
+              "required": [
+                "identifier"
+              ],
+              "properties": {
+                "identifier": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "value"
+                  ],
+                  "oneOf": [
+                    {
+                      "title": "ASCII",
+                      "properties": {
+                        "type": {
+                          "const": "ascii",
+                          "description": "Use ASCII string"
+                        },
+                        "value": {
+                          "type": "string",
+                          "pattern": "[A-Za-z0-9_.\\-]+",
+                          "description": "Alphanumeric, underscore, dot, hyphen"
+                        }
+                      }
+                    },
+                    {
+                      "title": "HEX",
+                      "properties": {
+                        "type": {
+                          "const": "hex",
+                          "description": "Use HEX string"
+                        },
+                        "value": {
+                          "type": "string",
+                          "pattern": "^([0-9A-Fa-f]{2})(:[0-9A-Fa-f]{2})*$",
+                          "description": "Hex sting (FE:DC:...)"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "comment": {
+                  "type": "string",
+                  "pattern": "^[^\\x01-\\x1f\\']{1,63}$",
+                  "description": "String, no quotes, up to 63 chars"
+                }
+              }
+            }
+          }
+        },
+        {
+          "title": "vendor-encapsulated-options",
+          "properties": {
+            "name": {
+              "const": "vendor-encapsulated-options",
+              "description": "Vendor specific options (Option 43)"
+            },
+            "parameters": {
+              "type": "object",
+              "description": "Parameters for vendor-encapsulated-options option",
+              "unevaluatedProperties": false,
+              "required": [
+                "identifier"
+              ],
+              "properties": {
+                "identifier": {
+                  "type": "object",
+                  "unevaluatedProperties": false,
+                  "required": [
+                    "type",
+                    "value"
+                  ],
+                  "oneOf": [
+                    {
+                      "title": "ASCII",
+                      "properties": {
+                        "type": {
+                          "const": "ascii",
+                          "description": "Use ASCII string"
+                        },
+                        "value": {
+                          "type": "string",
+                          "pattern": "[A-Za-z0-9_.\\-]+",
+                          "description": "Alphanumeric, underscore, dot, hyphen"
+                        }
+                      }
+                    },
+                    {
+                      "title": "HEX",
+                      "properties": {
+                        "type": {
+                          "const": "hex",
+                          "description": "Use HEX string"
+                        },
+                        "value": {
+                          "type": "string",
+                          "pattern": "^([0-9A-Fa-f]{2})(:[0-9A-Fa-f]{2})*$",
+                          "description": "Hex sting (FE:DC:...)"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "comment": {
+                  "type": "string",
+                  "pattern": "^[^\\x01-\\x1f\\']{1,63}$",
+                  "description": "String, no quotes, up to 63 chars"
+                }
+              }
+            }
           }
         }
-      }
+      ]
     }
   }
 }
-['ifname', 'capability', 'hash_policy', {'const': 'layer2', 'description': 'Use only MAC addresses. (by default)'}, {'const': 'layer2+3', 'description': 'Use MAC and IP addresses'}, {'const': 'layer3+4', 'description': 'Use IP addresses and upper protocol information'}, 'link_monitor_period', {'type': 'integer', 'minimum': 0, 'maximum': 2147483647, 'description': '<0-2147483647>'}, {'type': 'null'}, 'enslave']
-{'ifname': 'bond0', 'capability': {'link_monitor_period': None}} ---- 2
-{'ifname': 'bond7697', 'capability': {'hash_policy': 'architecto Nullam placeat veniam vehicula vitae'}} ---- 2
-{'ifname': 'bond4', 'capability': {'link_monitor_period': None}} ---- 2
-{'ifname': 'bond0', 'capability': {'hash_policy': 'Nullam dui sit', 'enslave': ['vlan2711', 'eth810.126', 'eth4051', 'vlan1510', 'eth0.67']}} ---- 2
-{'ifname': 'bond974', 'capability': {'hash_policy': 'dui mattis', 'link_monitor_period': 1417791689, 'enslave': []}} ---- 2
-{'ifname': 'bond43', 'capability': {'hash_policy': 'esse possimus', 'link_monitor_period': None, 'enslave': []}} ---- 2
-{'ifname': 'bond2', 'capability': {'hash_policy': '', 'enslave': ['vlan6', 'vlan4010', 'eth0.7389', 'eth0.0', 'eth4420.62']}} ---- 2
-{'ifname': 'bond3', 'capability': {}} ---- 2
-{'ifname': 'bond2', 'capability': {'hash_policy': 'placeat possimus ut'}} ---- 2
-{'ifname': 'bond0', 'capability': {'link_monitor_period': None, 'enslave': ['eth607.199', 'vlan4092', 'eth0.170', 'eth2723']}} ---- 2
+---------------------------
