@@ -158,12 +158,9 @@ def generate_fake_data_interfaces(schema, available_interfaces, seed=None):
     return fix_bools(fake_data)
 
 
-def generate_fake_data(schema, seed=None):
-    if seed is not None:
-        random.seed(seed)
-
+def generate_fake_data(schema):
     try:
-        faker = JSF(schema)
+        faker = JSF(schema,)
         fake_data = faker.generate()
 
         def fix_bools(obj):
@@ -213,7 +210,7 @@ def generate_fake_data_add(schema, available_interfaces, seed=None):
     # Защита: если схема возвращает не dict — возвращаем как есть
     if not isinstance(fake_data, dict):
         return fake_data
-
+    #
     # Проверяем наличие ifname и перегенерируем, если он уже существует
     if 'ifname' in fake_data and available_interfaces:
         while fake_data.get('ifname') in available_interfaces:
