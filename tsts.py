@@ -1,3 +1,4 @@
-s = '/interfaces/bridge/add'
+with open('endpoints.txt', 'r', encoding='utf-8') as f:
+    endpoints = f.read()
 
-print('/'.join(s.split('/')[:-1]))
+print(endpoints.split('\n'))

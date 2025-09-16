@@ -369,6 +369,8 @@
 /ntp/configuration%GET
 /ntp/dhcp%GET
 /ntp/dhcp%POST
+/ntp/dhcp%GET
+/ntp/dhcp%POST
 /ntp/interface%GET
 /ntp/interface%POST
 /ntp/pool%GET
