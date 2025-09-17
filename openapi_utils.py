@@ -160,7 +160,7 @@ def generate_fake_data_interfaces(schema, available_interfaces, seed=None):
 
 def generate_fake_data(schema):
     try:
-        faker = JSF(schema)
+        faker = JSF(schema,)
         fake_data = faker.generate()
 
         def fix_bools(obj):
